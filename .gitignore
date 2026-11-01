@@ -6,6 +6,7 @@
 !/build.py
 !/patch_exe.py
 !/disc.py
+!/padmap.py
 !/config/
 !/docs/
 __pycache__/

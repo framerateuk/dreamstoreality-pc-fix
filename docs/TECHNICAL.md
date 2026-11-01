@@ -24,7 +24,7 @@ The music is CD audio: CD 1 = data + 11 audio tracks, CD 2 = data + 13. The game
 ## The install
 
 `INSTALFX.BAT` asks for the drive and calls `INST_SFX.BAT`, which only makes folders and `XCOPY`s files
-(DOSBox and DOSBox Staging have no `XCOPY`, so the batch file can't run there; `build.py` does the same
+(DOSBox Pure has no `XCOPY`, so the batch file can't run there; `build.py` does the same
 copies): the disc root's files to `C:\CRYO\DREAMS`; `DATA\HD.ID`, `REPLAY.BIN`; `DATA\3DC\DIALOG.DRD`,
 `*.3DC`, `*.3DM`; `DATA\SOUND\*`, `DATA\UNIVBE\*`; empty `DATA\GAME`, `DATA\ANIM`. Then it runs
 `SETSOUND.EXE` and asks "Minimum install?": No = Full = `DATA\HD.ID` copied to `DATA\FULL.ID`.
@@ -32,23 +32,36 @@ copies): the disc root's files to `C:\CRYO\DREAMS`; `DATA\HD.ID`, `REPLAY.BIN`; 
 - **Full install** doesn't copy more at install time: the game itself copies the current level set from
   the CD to `DATA\3DC` / `DATA\ANIM` when a game starts ("Please wait while loading", about 70 MB for CD 1's
   set, recorded in `DATA\LEVEL.ID`), and again for CD 2. The disc README: "improving disk access during the
-  game ... also offers video-maps" (animated textures). So the folder grows to roughly 100-180 MB as you play.
+  game ... also offers video-maps" (animated textures). So the save grows to roughly 70-150 MB as you play.
 - **`DATA\SOUND\DIG.INI`** (`config/DIG.INI`): what the game's `SETSOUND.EXE` (Miles Sound System 3.50B)
   writes after "Creative Labs Sound Blaster 16 or AWE32", "Attempt to configure automatically" ->
   "Device detected successfully": `SB16.DIG` at 220h, IRQ / DMA from the `BLASTER` variable. Digital audio
   only; the music is CD audio.
 - **`GO.BAT`** sets `FX_GLIDE_NO_SPLASH=1` (no 3dfx logo) and runs `DREAMSFX.EXE`.
-- Saved games: `DATA\GAME\GAME.DAT`, `GAMEn.DAT`, `GAMEn.ICO`.
+- Saved games: `DATA\GAME\GAME.DAT`, `GAMEn.DAT`, `GAMEn.ICO`. In DOSBox Pure everything the game writes
+  goes to the core's save file, `saves/Dreams to Reality.pure.zip`.
 
-`build.py`'s game folder is byte for byte the one we tested (69 files; only `GO.BAT`'s comments differ).
+## The zip
 
-## The DOSBox Staging settings
+| In the zip | What |
+|---|---|
+| `DREAMS1.CUE` / `.BIN`, `DREAMS2.CUE` / `.BIN` | your CD images, stored first and CD 1 first, so DOSBox Pure mounts CD 1 as D: at start and lists CD 2 in its Start Menu. The `.cue`'s `FILE` lines are rewritten to the new names (one `.bin` per track becomes `DREAMSn_01.BIN` ...); a CloneCD `.ccd` gets a `.cue` made from its track table, pregaps included. |
+| `CRYO/DREAMS/` | the install above, `GLIDE2X.OVL`, the patched `DREAMSFX.EXE`, `GO.BAT`, `DATA/SOUND/DIG.INI` |
+| `AUTOBOOT.DBP` | `C:\CRYO\DREAMS\GO.BAT`: Pure starts it at once (no start menu) |
+| `DOSBOX.CONF` | the machine (below); read because the `.opt` sets "Loading of dosbox.conf" to the one inside the content |
+| `PADMAP.DBP` | the pad map (`padmap.py`): keys only, no emulated joystick |
 
-`config/dosbox.conf`: S3 SVGA, Pentium, **200000 cycles** in protected mode, 32 MB (the installer asks for
-20 MB), Sound Blaster 16 at 220 / 7 / 1 / 5, Voodoo 1 with 4 MB, bilinear filtering on (as a real Voodoo).
+Everything is stored (no compression) so Pure can read the CD images in place. Built from our discs, the zip
+has the same 84 entries, with the same contents, as the package tested on the Steam Deck; only the comments
+in `GO.BAT` and `DOSBOX.CONF` differ.
+
+## The machine
+
+`DOSBOX.CONF` and the `.opt`: S3 SVGA, Pentium, **200000 cycles**, 32 MB (the installer asks for 20 MB), Sound
+Blaster 16 at 220 / 7 / 1 / 5, Voodoo 1 (`voodoo=4mb`, OpenGL `voodoo_perf=4`, rendered at 2x, gamma -2).
 Cycles: the 3D frame rate about doubled from 77000 to 150000 cycles, and the 640x480 movies are decoded by
-the CPU. Both CDs are mounted as D: (`imgmount`, which Staging 0.83 calls deprecated but still runs; it keeps
-the file working in 0.82); Ctrl+F4 swaps them.
+the CPU. The `.cfg`: `glcore` (Pure's OpenGL Voodoo needs it), a fixed 4:3 picture (the game is 640x480
+throughout: movies, menus and 3D), save-state auto-load off. No shader: the 3dfx picture is filtered already.
 
 ## The exe patches
 
@@ -97,11 +110,12 @@ push 0 / call grFogMode / nop nop            6a 00 e8 36 f7 08 00 90 90
 ```
 
 (`grFogMode` is stdcall and pops its argument; the old callee popped its own float too.) Levels with real
-fog (a non-zero density from the level, or the animated fog) still take the other branches. DOSBox Staging's
-FPU handles the NaN as a real one does, so Staging doesn't need this patch; it changes nothing there or on
-a real PC, and it lets the same exe run in DOSBox Pure.
+fog (a non-zero density from the level, or the animated fog) still take the other branches. On a real PC, and in
+emulators whose FPU treats the NaN as a real one does (DOSBox Staging, for one), the patch changes nothing.
 
 ## Changing CDs
 
 When the game needs the other CD it shows **"Please change to CD no 2"** and keeps checking the drive (its
-wait loop at 0x645be retries opening the ID file), so swapping the disc is enough: no key press needed.
+wait loop at 0x645be retries opening the ID file), so swapping the disc is enough: no key press needed. In
+DOSBox Pure, picking the other image in its Start Menu replaces the disc in D: and tells MSCDEX the media
+changed.
